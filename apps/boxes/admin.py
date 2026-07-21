@@ -6,9 +6,6 @@ from .models import ShippingBox
 class ShippingBoxAdmin(admin.ModelAdmin):
     list_display = (
         'name', 
-        'length', 
-        'width', 
-        'height',
         'max_weight',
         'cost',
     ) 
