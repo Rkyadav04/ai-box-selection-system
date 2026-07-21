@@ -1,9 +1,11 @@
 from django.db import models
-
-from apps.common.models import TimestampedModel
+from decimal import Decimal
+from django.core.validators import MinValueValidator
+from apps.boxes.models import ShippingBox
+from apps.common.models import TimeStampedModel
 from apps.products.models import Product
-class Order(TimestampedModel):
-    customer_name = models.CharField(max_length=255)
+class Order(TimeStampedModel):
+    customer_name = models.CharField(max_length=255, blank=True, default="",)
 
     recommended_box = models.ForeignKey(
         'boxes.ShippingBox',
@@ -13,10 +15,40 @@ class Order(TimestampedModel):
          related_name='recommended_orders',
     )
 
-def __str__(self):
-    return f"Order #{self.pk}"
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Order"
+        verbose_name_plural = "Orders"
 
-class OrderItem(TimestampedModel):
+    def __str__(self):
+        return f"Order #{self.pk}"
+        
+        
+        
+    def get_total_weight(self) -> Decimal:
+            total = Decimal("0.00")
+            for item in self.items.select_related('product'):
+                total += item.product.weight * item.quantity
+            return total
+        
+    def get_packing_dimensions(self):
+            length = Decimal("0.00")
+            width = Decimal("0.00")
+            height = Decimal("0.00")
+
+            for item in self.items.select_related('product'):
+                product = item.product
+                length = max(length, product.length)
+                width = max(width, product.width)
+                height += product.height * item.quantity
+
+            return {
+                "length": length,
+                "width": width,
+                "height": height,
+            }
+        
+class OrderItem(TimeStampedModel):
     order = models.ForeignKey(
         Order, 
         on_delete=models.CASCADE, 
@@ -25,9 +57,11 @@ class OrderItem(TimestampedModel):
     
     product = models.ForeignKey(
         Product, 
-        on_delete=models.CASCADE)
+        on_delete=models.CASCADE,
+        related_name='order_items'
+        )
     
-    quantity = models.PositiveIntegerField(default=1)
+    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)], default=1,)
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"    
